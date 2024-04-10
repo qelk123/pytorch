@@ -99,7 +99,8 @@ PyObject* lookup(
         if (cache_entry.root_mgr != nullptr) {
           valid = run_root_guard_manager(cache_entry.root_mgr, f_locals);
         } else {
-          valid = cache_entry.check_fn(locals).cast<bool>();
+          valid = cache_entry.check_fn(locals).cast<bool>();  // guard here
+          // from here we know that we only check locals vars constraints
         }
       } catch (py::error_already_set& e) {
         if (guard_error_hook) {

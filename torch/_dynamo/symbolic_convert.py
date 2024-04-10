@@ -395,7 +395,7 @@ def generic_jump(truth_fn: typing.Callable[[object], bool], push: bool):
                 self.jump(inst)
         elif (
             isinstance(value, (TensorVariable)) and self.should_compile_partial_graph()
-        ):
+        ):  # do graph break for dynamic control flow
             jump_graph_break(self, inst, value)
         elif isinstance(value, NNModuleVariable):
             # Equivalent of "self.nn_module is not None"
@@ -610,7 +610,7 @@ class BytecodeDistpatchTableMeta(type):
 
         def _missing(opname, *args):
             unimplemented(f"missing: {opname}")
-
+        # get all op index and related handler defined in this class
         dispatch_table = {
             op: getattr(cls, opname, functools.partial(_missing, opname))
             for opname, op in dis.opmap.items()
@@ -754,6 +754,9 @@ class InstructionTranslatorBase(
         self.update_block_stack(inst)
 
         try:
+            # try to handle this inst with registered handler
+            # which is likely a interpreter but care about
+            # the symbol not the value 
             self.dispatch_table[inst.opcode](self, inst)
             return not self.output.should_exit
         except ReturnValueOp:
@@ -2142,7 +2145,7 @@ class InstructionTranslator(InstructionTranslatorBase):
             vars.extend(cells_and_freevars)
             cells_and_freevars_set = set(cells_and_freevars)
 
-            self.symbolic_locals = {
+            self.symbolic_locals = {  # init all symbolic locals here from f_locals
                 k: variables.LazyVariableTracker.create(
                     f_locals[k],
                     source=LocalSource(k, cell_or_freevar=k in cells_and_freevars_set),
@@ -2272,7 +2275,7 @@ class InstructionTranslator(InstructionTranslatorBase):
             argnames,
             tuple(b.resume_fn() for b in self.block_stack),
             tuple(null_idxes),
-        )
+        )  # insert jump forward bytecode to original code
 
         # Add original GraphModule context to the resume function to handle
         # the case of a graph break while tracing a GraphModule
@@ -2286,6 +2289,7 @@ class InstructionTranslator(InstructionTranslatorBase):
 
         if new_code.co_freevars:
             cg.make_function_with_closure(name, new_code, True, stack_len)
+            # create a new closure call(__resume_at_XXX), with jump forward added frame code
         else:
             # This is safe: we pre-generate a unique name
             self.output.install_global_unsafe(

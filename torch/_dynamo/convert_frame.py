@@ -489,7 +489,7 @@ def _compile(
             globals,
             builtins,
             code_options,
-            compiler_fn,
+            compiler_fn,  # for inductor backend is torch/_dynamo/backends/inductor.py
             one_graph,
             export,
             export_constraints,
@@ -646,7 +646,7 @@ def _compile(
             hooks.guard_fail_fn if hooks else None,
         )
 
-        guarded_code = GuardedCode(out_code, check_fn.check_fn)
+        guarded_code = GuardedCode(out_code, check_fn.check_fn)  # check_fn.check_fn is a functor
 
         if not output.is_empty_graph() and hooks.guard_export_fn is not None:
             # We should not run the guard_export_fn when Dynamo does not

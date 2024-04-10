@@ -1072,7 +1072,7 @@ def transform_code_object(code, transformations, safe=False) -> types.CodeType:
     code_options = {k: getattr(code, k) for k in keys}
     assert len(code_options["co_varnames"]) == code_options["co_nlocals"]
 
-    instructions = cleaned_instructions(code, safe)
+    instructions = cleaned_instructions(code, safe) # from byte code to python objects (Instruction)
     propagate_line_nums(instructions)
 
     transformations(instructions, code_options)

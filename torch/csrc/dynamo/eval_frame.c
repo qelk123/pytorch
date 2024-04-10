@@ -591,7 +591,7 @@ static PyObject* _custom_eval_frame(
   eval_frame_callback_set(Py_None);
 
   _PytorchRecordFunctionState* rf = _pytorch_record_function_enter(cache_lookup_profiler_str);
-  PyObject* maybe_cached_code = lookup(extra, frame->f_locals, backend);
+  PyObject* maybe_cached_code = lookup(extra, frame->f_locals, backend);  // using guard_fn to do checking
   _pytorch_record_function_exit(rf);
   if (maybe_cached_code == NULL) {
     // Python error
@@ -609,7 +609,7 @@ static PyObject* _custom_eval_frame(
   CacheEntry* cache_entry = extract_cache_entry(extra);
   FrameState* frame_state = extract_frame_state(extra);
   PyObject* result =
-      call_callback(callback, frame, cache_entry, frame_state);
+      call_callback(callback, frame, cache_entry, frame_state);  // get new frame.code and guard_fn
   if (result == NULL) {
     // internal exception, returning here will leak the exception into user code
     // this is useful for debugging -- but we dont want it to happen outside of
@@ -635,8 +635,8 @@ static PyObject* _custom_eval_frame(
     // ptr. As a result, extra now becomes the owner of CacheEntry object. This
     // will be cleaned up when set_extra_state is called.
     // Re-enable custom behavior
-    eval_frame_callback_set(callback);
-    return eval_custom_code(tstate, frame, CacheEntry_get_code(new_cache_entry), throw_flag);
+    eval_frame_callback_set(callback);  // why set callback here, and when to call callback
+    return eval_custom_code(tstate, frame/*this is the original frame*/, CacheEntry_get_code(new_cache_entry), throw_flag);  // using optimized frame code (CacheEntry_get_code(new_cache_entry))
   } else {
     DEBUG_TRACE("create skip %s", get_frame_name(frame));
     Py_DECREF(result);
@@ -680,7 +680,7 @@ static PyObject* set_eval_frame(PyObject* new_callback, PyThreadState* tstate) {
   if (old_callback != Py_None && new_callback == Py_None) {
     decrement_working_threads(tstate);
   } else if (old_callback == Py_None && new_callback != Py_None) {
-    increment_working_threads(tstate);
+    increment_working_threads(tstate); // 1. set _custom_eval_frame to replace default frame
   }
 
   Py_INCREF(new_callback);
@@ -688,7 +688,7 @@ static PyObject* set_eval_frame(PyObject* new_callback, PyThreadState* tstate) {
 
   // Set thread local callback. This will drive behavior of our shim, if/when it
   // is installed.
-  eval_frame_callback_set(new_callback);
+  eval_frame_callback_set(new_callback); // 2. set new callback def from python
 
   return old_callback;
 }

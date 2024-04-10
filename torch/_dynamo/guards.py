@@ -2042,6 +2042,7 @@ def build_guard_function(code_parts, closure_args) -> Tuple[str, str]:
     with make_guard_fn.indent():
         make_guard_fn.splice(guard)
         make_guard_fn.writeline("return guard")
+    # generate guard src func here
 
     return guard_body.getvalue(), make_guard_fn.getvalue()
 
